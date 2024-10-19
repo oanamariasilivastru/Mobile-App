@@ -1,2 +1,21 @@
-/* For information on how to create your own theme, please see:
-http://ionicframework.com/docs/theming/ */
+/* Customizing Toolbar */
+ion-header {
+    --background: var(--ion-color-primary); /* Suprascrie culoarea de fundal */
+    --color: var(--ion-color-light); /* Schimbă culoarea textului */
+  }
+
+  /* Customizing Buttons */
+  ion-button {
+    --background: var(--ion-color-secondary);
+    --border-radius: 12px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+  }
+
+  /* Customizing Input Fields */
+  ion-input {
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --border-radius: 8px;
+    --background: var(--ion-color-light);
+  }
