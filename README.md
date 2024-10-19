@@ -2,7 +2,7 @@
 
 Această aplicație mobilă folosește entitatea **Produs** pentru a gestiona o listă de articole. Aplicația este structurată în două ecrane principale:
 
-## 📋 Ecranul 1: Lista de Items
+## 📋 Ecranul 1: Lista de Produse
 - **Listă de Produse**: Aici poți vizualiza toate produsele disponibile. 🛒
 - **Funcționalitate**: Poți selecta un produs existent pentru a-l edita. ✏️
 
