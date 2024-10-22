@@ -1,8 +1,9 @@
+// ProductProvider.tsx
 import React, { useCallback, useEffect, useReducer } from 'react';
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
 import { ProductProps } from './ProductProps';
-import { createProduct, getProducts, updateProduct } from './ProductApi';
+import { newWebSocket, createProduct, getProducts, updateProduct } from './ProductApi';
 
 const log = getLogger('ProductProvider');
 
@@ -33,10 +34,11 @@ const FETCH_PRODUCTS_FAILED = 'FETCH_PRODUCTS_FAILED';
 const SAVE_PRODUCT_STARTED = 'SAVE_PRODUCT_STARTED';
 const SAVE_PRODUCT_SUCCEEDED = 'SAVE_PRODUCT_SUCCEEDED';
 const SAVE_PRODUCT_FAILED = 'SAVE_PRODUCT_FAILED';
+const PRODUCT_UPDATED = 'PRODUCT_UPDATED';
 
 const reducer: (state: ProductsState, action: ActionProps) => ProductsState =
   (state, { type, payload }) => {
-    switch(type) {
+    switch (type) {
       case FETCH_PRODUCTS_STARTED:
         return { ...state, fetching: true, fetchingError: null };
       case FETCH_PRODUCTS_SUCCEEDED:
@@ -57,6 +59,16 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState =
         return { ...state, products, saving: false };
       case SAVE_PRODUCT_FAILED:
         return { ...state, savingError: payload.error, saving: false };
+      case PRODUCT_UPDATED:
+        const updatedProducts = [...(state.products || [])];
+        const updatedProduct = payload.product;
+        const idx = updatedProducts.findIndex(p => p.id === updatedProduct.id);
+        if (idx === -1) {
+          updatedProducts.push(updatedProduct);
+        } else {
+          updatedProducts[idx] = updatedProduct;
+        }
+        return { ...state, products: updatedProducts };
       default:
         return state;
     }
@@ -71,28 +83,30 @@ interface ProductProviderProps {
 export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { products, fetching, fetchingError, saving, savingError } = state;
-  useEffect(getProductsEffect, []);
-  const saveProduct = useCallback<SaveProductFn>(saveProductCallback, []);
-  const value = { products, fetching, fetchingError, saving, savingError, saveProduct };
-  log('returns');
-  return (
-    <ProductContext.Provider value={value}>
-      {children}
-    </ProductContext.Provider>
-  );
-
-  function getProductsEffect() {
+  useEffect(() => {
     let canceled = false;
     fetchProducts();
+    const closeWebSocket = newWebSocket(message => {
+      if (canceled) {
+        return;
+      }
+      const { event, payload: { product } } = message;
+      log(`ws message, product ${event}`);
+      if (event === 'created' || event === 'updated') {
+        dispatch({ type: PRODUCT_UPDATED, payload: { product } });
+      }
+    });
     return () => {
+      log('wsEffect - disconnecting');
       canceled = true;
-    }
+      closeWebSocket();
+    };
 
     async function fetchProducts() {
       try {
         log('fetchProducts started');
         dispatch({ type: FETCH_PRODUCTS_STARTED });
-        const products = await getProducts(); 
+        const products = await getProducts();
         log('fetchProducts succeeded');
         if (!canceled) {
           dispatch({ type: FETCH_PRODUCTS_SUCCEEDED, payload: { products } });
@@ -104,7 +118,15 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         }
       }
     }
-  }
+  }, []);
+  const saveProduct = useCallback<SaveProductFn>(saveProductCallback, []);
+  const value = { products, fetching, fetchingError, saving, savingError, saveProduct };
+  log('returns');
+  return (
+    <ProductContext.Provider value={value}>
+      {children}
+    </ProductContext.Provider>
+  );
 
   async function saveProductCallback(product: ProductProps) {
     try {

@@ -33,7 +33,7 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState =
   (state, { type, payload }) => {
     switch(type) {
       case FETCH_PRODUCTS_STARTED:
-        return { ...state, fetching: true };
+        return { ...state, fetching: true, fetchingError: undefined };
       case FETCH_PRODUCTS_SUCCEEDED:
         return { ...state, products: payload.products, fetching: false };
       case FETCH_PRODUCTS_FAILED:
@@ -49,23 +49,12 @@ export const useProducts: () => ProductsProps = () => {
   const addProduct = useCallback(() => {
     log('addProduct - TODO');
   }, []);
-  useEffect(getProductsEffect, [dispatch]);
-  log(`returns - fetching = ${fetching}, products = ${JSON.stringify(products)}`);
-  return {
-    products,
-    fetching,
-    fetchingError,
-    addProduct,
-  };
 
-  function getProductsEffect() {
+  // Fetch products on mount and set up polling
+  useEffect(() => {
     let canceled = false;
-    fetchProducts();
-    return () => {
-      canceled = true;
-    }
 
-    async function fetchProducts() {
+    const fetchProducts = async () => {
       try {
         log('fetchProducts started');
         dispatch({ type: FETCH_PRODUCTS_STARTED });
@@ -80,6 +69,23 @@ export const useProducts: () => ProductsProps = () => {
           dispatch({ type: FETCH_PRODUCTS_FAILED, payload: { error } });
         }
       }
-    }
-  }
+    };
+
+    fetchProducts();
+
+    const intervalId = setInterval(fetchProducts, 5000); // Poll every 5 seconds
+
+    return () => {
+      canceled = true;
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  log(`returns - fetching = ${fetching}, products = ${JSON.stringify(products)}`);
+  return {
+    products,
+    fetching,
+    fetchingError,
+    addProduct,
+  };
 };
