@@ -17,7 +17,6 @@ Entitatea **Produs** conține următoarele câmpuri:
 - `price`: Prețul produsului. 💰
 - `category`: Categoria din care face parte produsul. 🏷️
 - `inStock`: Starea de disponibilitate a produsului. ✅
-- `version`: Versiunea produsului pentru gestionarea actualizărilor. 📅
 
 ## ⚙️ Tehnologii Folosite
 - **React**: Biblioteca principală pentru construirea interfeței utilizator. ⚛️
