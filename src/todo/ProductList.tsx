@@ -20,7 +20,8 @@ const log = getLogger('ProductList');
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
   const { products, fetching, fetchingError } = useContext(ProductContext);
-  log('render');
+  log('render', products); // Log to verify product list
+
   return (
     <IonPage>
       <IonHeader>
@@ -32,17 +33,17 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
         <IonLoading isOpen={fetching} message="Fetching products" />
         {products && (
           <IonList>
-            {products.map(({ id, name, price, category, inStock }) =>
+            {products.map(({ _id, name, price, category, inStock }) => (
               <Product
-                key={id}
-                id={id}
+                key={_id}
+                _id={_id} // Make sure to pass _id if it's the unique identifier
                 name={name}
                 price={price}
                 category={category}
                 inStock={inStock}
-                onEdit={id => history.push(`/product/${id}`)}
+                onEdit={() => history.push(`/product/${_id}`)}
               />
-            )}
+            ))}
           </IonList>
         )}
         {fetchingError && (

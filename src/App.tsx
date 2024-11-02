@@ -34,22 +34,26 @@ import {ProductList} from './todo';
 import { ProductProvider } from './todo/ProductProvider';
 import  ProductEdit  from './todo/ProductEdit';
 import Product from './todo/Product';
-
+import { AuthProvider, Login, PrivateRoute } from './auth';
 
 setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
-    <ProductProvider>
-      <IonReactRouter>
-        <IonRouterOutlet>
-          <Route path="/products" component={ProductList} exact={true}/>
-          <Route path="/product" component={ProductEdit} exact={true}/>
-          <Route path="/product/:id" component={ProductEdit} exact={true}/>
-          <Route exact path="/" render={() => <Redirect to="/products"/>}/>
-        </IonRouterOutlet>
-      </IonReactRouter>
-    </ProductProvider>
+    <IonReactRouter>
+      <IonRouterOutlet>
+        <AuthProvider>
+          <Route path="/login" component={Login} exact={true} />
+          <ProductProvider>
+            <PrivateRoute path="/products" component={ProductList} exact={true} />
+            <PrivateRoute path="/product" component={ProductEdit} exact={true} />
+            <PrivateRoute path="/product/:id" component={ProductEdit} exact={true} />
+          </ProductProvider>
+          <Route exact path="/" render={() => <Redirect to="/products" />} />
+        </AuthProvider>
+      </IonRouterOutlet>
+    </IonReactRouter>
   </IonApp>
 );
+
 export default App;

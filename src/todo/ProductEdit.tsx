@@ -34,7 +34,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   useEffect(() => {
     log('useEffect');
     const routeId = match.params.id || '';
-    const foundProduct = products?.find(it => it.id === routeId);
+    const foundProduct = products?.find(it => it._id === routeId);
     setProduct(foundProduct);
     if (foundProduct) {
       setName(foundProduct.name);
@@ -44,10 +44,9 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     }
   }, [match.params.id, products]);
 
-
   const handleSave = useCallback(() => {
     const editedProduct: ProductProps = {
-      id: product?.id, // Preserve the ID if it exists
+      _id: product?._id, // Preserve the ID if it exists
       name,
       price: price !== undefined ? price : 0, // Default to 0 if price is undefined
       category,
@@ -71,15 +70,32 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <IonInput value={name} placeholder="Product Name" onIonChange={e => setName(e.detail.value || '')} />
-        <IonInput type="number" value={price !== undefined ? price : ''} placeholder="Price" onIonChange={e => setPrice(e.detail.value ? Number(e.detail.value) : undefined)} />
-        <IonSelect value={category} placeholder="Select Category" onIonChange={e => setCategory(e.detail.value)}>
+        <IonInput
+          value={name}
+          placeholder="Product Name"
+          onIonChange={e => setName(e.detail.value || '')}
+        />
+        <IonInput
+          type="number"
+          value={price !== undefined ? price : ''}
+          placeholder="Price"
+          onIonChange={e => setPrice(e.detail.value ? Number(e.detail.value) : undefined)}
+        />
+        <IonSelect
+          value={category}
+          placeholder="Select Category"
+          onIonChange={e => setCategory(e.detail.value)}
+        >
           <IonSelectOption value="Electronics">Electronics</IonSelectOption>
           <IonSelectOption value="Clothing">Clothing</IonSelectOption>
           <IonSelectOption value="Food">Food</IonSelectOption>
           <IonSelectOption value="Books">Books</IonSelectOption>
         </IonSelect>
-        <IonSelect value={inStock ? 'true' : 'false'} placeholder="In Stock" onIonChange={e => setInStock(e.detail.value === 'true')}>
+        <IonSelect
+          value={inStock ? 'true' : 'false'}
+          placeholder="In Stock"
+          onIonChange={e => setInStock(e.detail.value === 'true')}
+        >
           <IonSelectOption value="true">Yes</IonSelectOption>
           <IonSelectOption value="false">No</IonSelectOption>
         </IonSelect>

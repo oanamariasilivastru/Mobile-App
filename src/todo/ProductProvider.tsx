@@ -1,9 +1,9 @@
-// ProductProvider.tsx
-import React, { useCallback, useEffect, useReducer } from 'react';
+import React, { useCallback, useContext, useEffect, useReducer } from 'react';
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
 import { ProductProps } from './ProductProps';
-import { newWebSocket, createProduct, getProducts, updateProduct } from './ProductApi';
+import { createProduct, getProducts, newWebSocket, updateProduct } from './ProductApi';
+import { AuthContext } from '../auth';
 
 const log = getLogger('ProductProvider');
 
@@ -34,9 +34,8 @@ const FETCH_PRODUCTS_FAILED = 'FETCH_PRODUCTS_FAILED';
 const SAVE_PRODUCT_STARTED = 'SAVE_PRODUCT_STARTED';
 const SAVE_PRODUCT_SUCCEEDED = 'SAVE_PRODUCT_SUCCEEDED';
 const SAVE_PRODUCT_FAILED = 'SAVE_PRODUCT_FAILED';
-const PRODUCT_UPDATED = 'PRODUCT_UPDATED';
 
-const reducer: (state: ProductsState, action: ActionProps) => ProductsState =
+const reducer: (state: ProductsState, action: ActionProps) => ProductsState = 
   (state, { type, payload }) => {
     switch (type) {
       case FETCH_PRODUCTS_STARTED:
@@ -50,25 +49,15 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState =
       case SAVE_PRODUCT_SUCCEEDED:
         const products = [...(state.products || [])];
         const product = payload.product;
-        const index = products.findIndex(p => p.id === product.id);
+        const index = products.findIndex(it => it._id === product._id);
         if (index === -1) {
-          products.splice(0, 0, product);
+          products.push(product); // Add to the end of the list if it's new
         } else {
-          products[index] = product;
+          products[index] = product; // Update if it already exists
         }
         return { ...state, products, saving: false };
       case SAVE_PRODUCT_FAILED:
         return { ...state, savingError: payload.error, saving: false };
-      case PRODUCT_UPDATED:
-        const updatedProducts = [...(state.products || [])];
-        const updatedProduct = payload.product;
-        const idx = updatedProducts.findIndex(p => p.id === updatedProduct.id);
-        if (idx === -1) {
-          updatedProducts.push(updatedProduct);
-        } else {
-          updatedProducts[idx] = updatedProduct;
-        }
-        return { ...state, products: updatedProducts };
       default:
         return state;
     }
@@ -81,45 +70,12 @@ interface ProductProviderProps {
 }
 
 export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) => {
+  const { token } = useContext(AuthContext);
   const [state, dispatch] = useReducer(reducer, initialState);
   const { products, fetching, fetchingError, saving, savingError } = state;
-  useEffect(() => {
-    let canceled = false;
-    fetchProducts();
-    const closeWebSocket = newWebSocket(message => {
-      if (canceled) {
-        return;
-      }
-      const { event, payload: { product } } = message;
-      log(`ws message, product ${event}`);
-      if (event === 'created' || event === 'updated') {
-        dispatch({ type: PRODUCT_UPDATED, payload: { product } });
-      }
-    });
-    return () => {
-      log('wsEffect - disconnecting');
-      canceled = true;
-      closeWebSocket();
-    };
-
-    async function fetchProducts() {
-      try {
-        log('fetchProducts started');
-        dispatch({ type: FETCH_PRODUCTS_STARTED });
-        const products = await getProducts();
-        log('fetchProducts succeeded');
-        if (!canceled) {
-          dispatch({ type: FETCH_PRODUCTS_SUCCEEDED, payload: { products } });
-        }
-      } catch (error) {
-        log('fetchProducts failed');
-        if (!canceled) {
-          dispatch({ type: FETCH_PRODUCTS_FAILED, payload: { error } });
-        }
-      }
-    }
-  }, []);
-  const saveProduct = useCallback<SaveProductFn>(saveProductCallback, []);
+  useEffect(getProductsEffect, [token]);
+  useEffect(wsEffect, [token]);
+  const saveProduct = useCallback<SaveProductFn>(saveProductCallback, [token]);
   const value = { products, fetching, fetchingError, saving, savingError, saveProduct };
   log('returns');
   return (
@@ -128,16 +84,67 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     </ProductContext.Provider>
   );
 
+  function getProductsEffect() {
+    let canceled = false;
+    if (token) {
+      fetchProducts();
+    }
+    return () => {
+      canceled = true;
+    }
+
+    async function fetchProducts() {
+      try {
+        log('fetchProducts started');
+        dispatch({ type: FETCH_PRODUCTS_STARTED });
+        const products = await getProducts(token);
+        log('fetchProducts succeeded');
+        if (!canceled) {
+          dispatch({ type: FETCH_PRODUCTS_SUCCEEDED, payload: { products } });
+        }
+      } catch (error) {
+        log('fetchProducts failed', error);
+        dispatch({ type: FETCH_PRODUCTS_FAILED, payload: { error } });
+      }
+    }
+  }
+
   async function saveProductCallback(product: ProductProps) {
     try {
       log('saveProduct started');
       dispatch({ type: SAVE_PRODUCT_STARTED });
-      const savedProduct = await (product.id ? updateProduct(product) : createProduct(product));
+      const savedProduct = await (product._id ? updateProduct(token, product) : createProduct(token, product));
       log('saveProduct succeeded');
       dispatch({ type: SAVE_PRODUCT_SUCCEEDED, payload: { product: savedProduct } });
     } catch (error) {
       log('saveProduct failed');
       dispatch({ type: SAVE_PRODUCT_FAILED, payload: { error } });
+    }
+  }
+
+  function wsEffect() {
+    let canceled = false;
+    log('wsEffect - connecting');
+    let closeWebSocket: () => void;
+    if (token?.trim()) {
+      closeWebSocket = newWebSocket(token, message => {
+        if (canceled) {
+          return;
+        }
+        const { type, payload: product } = message;
+        log(`ws message, product ${type}`);
+        if (type === 'created' || type === 'updated') {
+          const existingIndex = state.products?.findIndex(p => p._id === product._id);
+          if (existingIndex === -1 || existingIndex === undefined) {
+            dispatch({ type: SAVE_PRODUCT_SUCCEEDED, payload: { product } });
+          }
+        }
+      });
+    }
+    return () => {
+      log('wsEffect - disconnecting');
+      canceled = true;
+      closeWebSocket?.();
     }
   }
 };
