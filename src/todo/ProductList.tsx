@@ -1,3 +1,4 @@
+// ProductList.tsx
 import React, { useContext, useEffect, useState } from 'react';
 import { RouteComponentProps } from 'react-router';
 import {
@@ -13,7 +14,6 @@ import {
   IonItem,
   IonLabel,
   IonList,
-  IonLoading,
   IonPage,
   IonSearchbar,
   IonSelect,
@@ -36,7 +36,7 @@ const productsPerPage = 10;
 const filterValues = ['inStock', 'outOfStock'];
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { products, fetching, fetchingError, successMessage, closeShowSuccess } =
+  const { products, fetchingError, successMessage, closeShowSuccess } =
     useContext(ProductContext);
   const { logout } = useContext(AuthContext);
   const [productsAux, setProductsAux] = useState<ProductProps[] | undefined>([]);
@@ -105,7 +105,6 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
-        <IonLoading isOpen={fetching} message="Fetching products..." />
         {productsAux && (
           <IonList inset={true}>
             <IonItem>
