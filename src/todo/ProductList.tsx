@@ -35,7 +35,8 @@ import { ProductProps } from './ProductProps';
 const log = getLogger('ProductList');
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { products, fetching, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
+  // Eliminăm 'fetching' din contextul ProductContext
+  const { products, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
   const { logout } = useContext(AuthContext);
 
   const [currentIndex, setCurrentIndex] = useState<number>(8);
@@ -103,6 +104,15 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
     setDisableInfiniteScroll(initialIndex >= filteredProducts.length);
   }, [filteredProducts]);
 
+  // Opțional: Gestionăm starea de încărcare inițială
+  useEffect(() => {
+    if (filteredProducts.length > 0) {
+      setIsLoading(false);
+    } else if (filteredProducts.length === 0 && !disableInfiniteScroll) {
+      setIsLoading(true);
+    }
+  }, [filteredProducts, disableInfiniteScroll]);
+
   log('render');
 
   return (
@@ -141,7 +151,8 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
-        <IonLoading isOpen={fetching} message="Fetching products..." />
+        {/* Înlocuim IonLoading controlat de 'fetching' cu unul controlat de 'isLoading' */}
+        <IonLoading isOpen={isLoading} message="Loading products..." />
         {filteredProducts && (
           <IonList inset={true}>
             <IonItem>

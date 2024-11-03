@@ -1,3 +1,4 @@
+// authApi.ts
 import axios from 'axios';
 import { baseUrl, config, withLogs } from '../core';
 
