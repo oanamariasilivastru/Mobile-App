@@ -1,4 +1,3 @@
-// ProductList.tsx
 import React, { useContext, useEffect, useState } from 'react';
 import { RouteComponentProps } from 'react-router';
 import {
@@ -36,8 +35,7 @@ const productsPerPage = 10;
 const filterValues = ['inStock', 'outOfStock'];
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { products, fetchingError, successMessage, closeShowSuccess } =
-    useContext(ProductContext);
+  const { products, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
   const { logout } = useContext(AuthContext);
   const [productsAux, setProductsAux] = useState<ProductProps[] | undefined>([]);
   const [index, setIndex] = useState<number>(0);
@@ -53,8 +51,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
     let filteredProducts = products;
     if (searchText) {
       filteredProducts = filteredProducts?.filter(
-        (product) =>
-          product.name && product.name.toLowerCase().includes(searchText.toLowerCase())
+        (product) => product.name && product.name.toLowerCase().includes(searchText.toLowerCase())
       );
     }
     if (filter) {
@@ -63,7 +60,6 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       );
     }
 
-    // Log filtered products to debug
     console.log('Filtered Products:', filteredProducts);
 
     setProductsAux(filteredProducts);
