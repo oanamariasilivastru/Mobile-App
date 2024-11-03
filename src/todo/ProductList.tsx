@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react';
+// ProductList.tsx
+import React, { useContext, useEffect, useState, useMemo } from 'react';
 import { RouteComponentProps } from 'react-router';
 import {
   IonButton,
@@ -13,6 +14,7 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonLoading,
   IonPage,
   IonSearchbar,
   IonSelect,
@@ -31,39 +33,75 @@ import { ProductContext } from './ProductProvider';
 import { ProductProps } from './ProductProps';
 
 const log = getLogger('ProductList');
-const productsPerPage = 10;
-const filterValues = ['inStock', 'outOfStock'];
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { products, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
+  const { products, fetching, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
   const { logout } = useContext(AuthContext);
-  const [productsAux, setProductsAux] = useState<ProductProps[] | undefined>([]);
-  const [index, setIndex] = useState<number>(0);
-  const [more, setHasMore] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [filter, setFilter] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    fetchData();
-  }, [products]);
+  const [currentIndex, setCurrentIndex] = useState<number>(8);
+  const [searchText, setSearchText] = useState<string>('');
+  const [filter, setFilter] = useState<string>('all');
+  const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    let filteredProducts = products;
+  const filterValues = ['all', 'inStock', 'outOfStock'];
+
+  const filteredProducts = useMemo(() => {
+    let filtered = products || [];
+
     if (searchText) {
-      filteredProducts = filteredProducts?.filter(
-        (product) => product.name && product.name.toLowerCase().includes(searchText.toLowerCase())
+      filtered = filtered.filter(
+        (product) =>
+          product.name && product.name.toLowerCase().includes(searchText.toLowerCase())
       );
     }
-    if (filter) {
-      filteredProducts = filteredProducts?.filter((product) =>
+
+    if (filter && filter !== 'all') {
+      filtered = filtered.filter((product) =>
         filter === 'inStock' ? product.inStock : !product.inStock
       );
     }
 
-    console.log('Filtered Products:', filteredProducts);
+    return filtered;
+  }, [products, searchText, filter]);
 
-    setProductsAux(filteredProducts);
-  }, [products, filter, searchText]);
+  const handleLogout = () => {
+    logout?.();
+    history.push('/login');
+  };
+
+  const fetchData = () => {
+    if (isLoading) return; // Prevenim apelurile multiple
+
+    setIsLoading(true);
+
+    setTimeout(() => {
+      if (filteredProducts && currentIndex < filteredProducts.length) {
+        const newIndex = Math.min(currentIndex + 8, filteredProducts.length);
+        setCurrentIndex(newIndex);
+
+        if (newIndex >= filteredProducts.length) {
+          setDisableInfiniteScroll(true);
+        }
+      } else {
+        setDisableInfiniteScroll(true);
+      }
+
+      setIsLoading(false);
+    }, 500); // Simulăm un timp de încărcare de 0.5 secunde
+  };
+
+  const searchNext = (event: CustomEvent<void>) => {
+    fetchData();
+    (event.target as HTMLIonInfiniteScrollElement).complete();
+  };
+
+  // Resetăm currentIndex și disableInfiniteScroll când se schimbă filtrul sau căutarea
+  useEffect(() => {
+    const initialIndex = Math.min(8, filteredProducts.length);
+    setCurrentIndex(initialIndex);
+    setDisableInfiniteScroll(initialIndex >= filteredProducts.length);
+  }, [filteredProducts]);
 
   log('render');
 
@@ -76,7 +114,9 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
             slot="end"
             value={filter}
             placeholder="Filter"
-            onIonChange={(e) => setFilter(e.detail.value)}
+            onIonChange={(e) => {
+              setFilter(e.detail.value);
+            }}
           >
             {filterValues.map((each) => (
               <IonSelectOption key={each} value={each}>
@@ -88,7 +128,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
           <IonSearchbar
             placeholder="Search by name"
             value={searchText}
-            debounce={200}
+            debounce={500}
             onIonInput={(e) => {
               setSearchText(e.detail.value!);
             }}
@@ -101,7 +141,8 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
-        {productsAux && (
+        <IonLoading isOpen={fetching} message="Fetching products..." />
+        {filteredProducts && (
           <IonList inset={true}>
             <IonItem>
               <IonLabel>Name</IonLabel>
@@ -110,75 +151,54 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
               <IonLabel>In Stock</IonLabel>
             </IonItem>
 
-            {productsAux.map((product) =>
-              product && product._id ? (
-                <Product
-                  key={product._id}
-                  _id={product._id}
-                  name={product.name}
-                  category={product.category}
-                  price={product.price}
-                  inStock={product.inStock}
-                  onEdit={(id) => history.push(`/product/${id}`)}
-                />
-              ) : null
-            )}
+            {filteredProducts
+              .slice(0, currentIndex)
+              .map((product) =>
+                product && product._id ? (
+                  <Product
+                    key={product._id}
+                    _id={product._id}
+                    name={product.name}
+                    category={product.category}
+                    price={product.price}
+                    inStock={product.inStock}
+                    onEdit={(id) => history.push(`/product/${id}`)}
+                  />
+                ) : null
+              )}
           </IonList>
         )}
         <IonInfiniteScroll
           threshold="100px"
-          disabled={!more}
-          onIonInfinite={(e: CustomEvent<void>) => searchNext(e)}
+          disabled={disableInfiniteScroll || isLoading}
+          onIonInfinite={searchNext}
         >
           <IonInfiniteScrollContent loadingText="Loading more products..."></IonInfiniteScrollContent>
         </IonInfiniteScroll>
-        {fetchingError && (
-          <div>{fetchingError.message || 'Failed to fetch products'}</div>
-        )}
+        {fetchingError && <div>{fetchingError.message || 'Failed to fetch products'}</div>}
         <IonFab vertical="bottom" horizontal="end" slot="fixed">
           <IonFabButton onClick={() => history.push('/product')}>
             <IonIcon icon={add} />
           </IonFabButton>
         </IonFab>
-        <IonToast
-          isOpen={!!successMessage}
-          message={successMessage}
-          position="bottom"
-          buttons={[
-            {
-              text: 'Dismiss',
-              role: 'cancel',
-            },
-          ]}
-          onDidDismiss={closeShowSuccess}
-          duration={5000}
-        />
+        {successMessage && (
+          <IonToast
+            isOpen={!!successMessage}
+            message={successMessage}
+            position="bottom"
+            buttons={[
+              {
+                text: 'Dismiss',
+                role: 'cancel',
+              },
+            ]}
+            onDidDismiss={closeShowSuccess}
+            duration={5000}
+          />
+        )}
       </IonContent>
     </IonPage>
   );
-
-  function handleLogout() {
-    logout?.();
-    history.push('/login');
-  }
-
-  function fetchData() {
-    if (products) {
-      const newIndex = Math.min(index + productsPerPage, products.length);
-      if (newIndex >= products.length) {
-        setHasMore(false);
-      } else {
-        setHasMore(true);
-      }
-      setProductsAux(products.slice(0, newIndex));
-      setIndex(newIndex);
-    }
-  }
-
-  async function searchNext($event: CustomEvent<void>) {
-    await fetchData();
-    await ($event.target as HTMLIonInfiniteScrollElement).complete();
-  }
 };
 
 export default ProductList;
