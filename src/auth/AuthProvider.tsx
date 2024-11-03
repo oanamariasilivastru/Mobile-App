@@ -1,103 +1,166 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
-import { getLogger } from '../core';
-import { login as loginApi } from './authApi';
+import {getLogger} from '../core';
+import {login as loginApi} from './authApi';
+import {Preferences} from "@capacitor/preferences";
 
 const log = getLogger('AuthProvider');
 
 type LoginFn = (username?: string, password?: string) => void;
+type LogoutFn = () => void;
 
 export interface AuthState {
-  authenticationError: Error | null;
-  isAuthenticated: boolean;
-  isAuthenticating: boolean;
-  login?: LoginFn;
-  pendingAuthentication?: boolean;
-  username?: string;
-  password?: string;
-  token: string;
+    authenticationError: Error | null;
+
+    isAuthenticated: boolean;
+    isAuthenticating: boolean;
+    pendingAuthentication?: boolean;
+
+    login?: LoginFn;
+    logout?: LogoutFn;
+
+    username?: string;
+    password?: string;
+
+    token: string;
+    tokenFound: boolean;
 }
 
 const initialState: AuthState = {
-  isAuthenticated: false,
-  isAuthenticating: false,
-  authenticationError: null,
-  pendingAuthentication: false,
-  token: '',
+    authenticationError: null,
+
+    isAuthenticated: false,
+    isAuthenticating: false,
+    pendingAuthentication: false,
+
+    token: '',
+    tokenFound: false
 };
 
 export const AuthContext = React.createContext<AuthState>(initialState);
 
 interface AuthProviderProps {
-  children: PropTypes.ReactNodeLike,
+    children: PropTypes.ReactNodeLike,
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [state, setState] = useState<AuthState>(initialState);
-  const { isAuthenticated, isAuthenticating, authenticationError, pendingAuthentication, token } = state;
-  const login = useCallback<LoginFn>(loginCallback, []);
-  useEffect(authenticationEffect, [pendingAuthentication]);
-  const value = { isAuthenticated, login, isAuthenticating, authenticationError, token };
-  log('render');
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
+    const [state, setState] = useState<AuthState>(initialState);
+    const {authenticationError,  isAuthenticated, isAuthenticating, pendingAuthentication, token, tokenFound} = state;
+    const login = useCallback<LoginFn>(loginCallback, []);
+    const logout = useCallback<LogoutFn>(logoutCallback, []);
 
-  function loginCallback(username?: string, password?: string): void {
-    log('login');
-    setState({
-      ...state,
-      pendingAuthentication: true,
-      username,
-      password
-    });
-  }
+    useEffect(authenticationEffect, [pendingAuthentication]);
 
-  function authenticationEffect() {
-    let canceled = false;
-    authenticate();
-    return () => {
-      canceled = true;
+    useEffect(() => {
+        async function checkForToken() {
+            if (tokenFound)
+                return;
+
+            const {keys} = await Preferences.keys();
+
+            if (keys.indexOf("token") !== -1) {
+                const token = await Preferences.get({key: 'token'});
+                console.log("token: " + token);
+                setState({
+                    ...state,
+                    token: token.value!!,
+                    tokenFound: true,
+                    pendingAuthentication: false,
+                    isAuthenticated: true,
+                    isAuthenticating: false,
+                })
+            }
+        }
+
+        checkForToken();
+    }, [state, tokenFound]);
+
+    const value = {isAuthenticated, login, logout, isAuthenticating, authenticationError, token, tokenFound};
+
+    log('render');
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
+
+    function loginCallback(username?: string, password?: string): void {
+        log('login');
+
+        setState({
+            ...state,
+            pendingAuthentication: true,
+            username,
+            password
+        });
     }
 
-    async function authenticate() {
-      if (!pendingAuthentication) {
-        log('authenticate, !pendingAuthentication, return');
-        return;
-      }
-      try {
-        log('authenticate...');
+    function logoutCallback(): void {
+        log('logout');
+
+        Preferences.remove({key: 'token'});
+
         setState({
-          ...state,
-          isAuthenticating: true,
+            ...state,
+            isAuthenticated: false,
+            token: '',
+            tokenFound: false
         });
-        const { username, password } = state;
-        const { token } = await loginApi(username, password);
-        if (canceled) {
-          return;
-        }
-        log('authenticate succeeded');
-        setState({
-          ...state,
-          token,
-          pendingAuthentication: false,
-          isAuthenticated: true,
-          isAuthenticating: false,
-        });
-      } catch (error) {
-        if (canceled) {
-          return;
-        }
-        log('authenticate failed');
-        setState({
-          ...state,
-          authenticationError: error as Error,
-          pendingAuthentication: false,
-          isAuthenticating: false,
-        });
-      }
     }
-  }
+
+    function authenticationEffect() {
+        let canceled = false;
+
+        authenticate();
+
+        return () => {
+            canceled = true;
+        }
+
+        async function authenticate() {
+            if (!pendingAuthentication || tokenFound) {
+                return;
+            }
+
+            try {
+                log('authenticate');
+
+                setState({
+                    ...state,
+                    isAuthenticating: true,
+                });
+
+                const {username, password} = state;
+                const {token} = await loginApi(username, password);
+
+                if (canceled) {
+                    return;
+                }
+
+                log('authentication succeeded');
+
+                setState({
+                    ...state,
+                    token,
+                    pendingAuthentication: false,
+                    isAuthenticated: true,
+                    isAuthenticating: false,
+                });
+            } catch (error) {
+                if (canceled) {
+                    return;
+                }
+
+                log('authentication failed');
+
+                setState({
+                    ...state,
+                    authenticationError: error as Error,
+                    pendingAuthentication: false,
+                    isAuthenticating: false,
+                });
+            }
+        }
+    }
 };

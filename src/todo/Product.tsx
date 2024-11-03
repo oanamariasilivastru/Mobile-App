@@ -6,7 +6,7 @@ import { ProductProps } from "./ProductProps";
 const log = getLogger('Product');
 
 interface ProductPropsExt extends ProductProps {
-    onEdit: (id?: string) => void;
+    onEdit: (_id?: string) => void;
 }
 
 const Product: React.FC<ProductPropsExt> = ({ _id, name, price, category, inStock, onEdit }) => {

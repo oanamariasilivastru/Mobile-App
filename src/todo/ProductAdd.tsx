@@ -16,43 +16,25 @@ import { ProductContext } from './ProductProvider';
 import { RouteComponentProps } from 'react-router';
 import { ProductProps } from './ProductProps';
 
-const log = getLogger('ProductEdit');
+const log = getLogger('ProductAdd');
 
 interface ProductEditProps extends RouteComponentProps<{
     id?: string;
 }> {
 }
 
-const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
-    const { products, updating, updatingError, updateProduct } = useContext(ProductContext);
+const ProductAdd: React.FC<ProductEditProps> = ({ history, match }) => {
+    const { products, updating, updatingError, addProduct } = useContext(ProductContext);
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [price, setPrice] = useState(0);
     const [inStock, setInStock] = useState(false);
     const [product, setProduct] = useState<ProductProps>();
 
-    useEffect(() => {
-        log('useEffect');
-        const routeId = match.params.id || '';
-        const product = products?.find(it => it._id === routeId);
-        setProduct(product);
-        if (product) {
-            setName(product.name);
-            setCategory(product.category);
-            setPrice(product.price);
-            setInStock(product.inStock);
-        }
-    }, [match.params.id, products]);
-
-    const handleUpdate = useCallback(() => {
-        const editedProduct = product ? { ...product, name, category, price, inStock } : {
-            name,
-            category,
-            price,
-            inStock
-        };
-        updateProduct && updateProduct(editedProduct).then(() => history.goBack());
-    }, [product, updateProduct, name, category, price, inStock, history]);
+    const handleAdd = useCallback(() => {
+        const addedProduct = { ...product, name, category, price, inStock };
+        addProduct && addProduct(addedProduct).then(() => history.goBack());
+    }, [product, addProduct, name, category, price, inStock, history]);
 
     const handleCancel = useCallback(() => {
         history.goBack();
@@ -64,7 +46,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
         <IonPage>
             <IonHeader>
                 <IonToolbar>
-                    <IonTitle>Edit Product</IonTitle>
+                    <IonTitle>Add Product</IonTitle>
                 </IonToolbar>
             </IonHeader>
             <IonContent>
@@ -91,7 +73,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
                     </IonButton>
                 </IonButtons>
                 <IonButtons slot="end">
-                    <IonButton onClick={handleUpdate}>
+                    <IonButton onClick={handleAdd}>
                         Save
                     </IonButton>
                 </IonButtons>
@@ -100,4 +82,4 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     );
 };
 
-export default ProductEdit;
+export default ProductAdd;

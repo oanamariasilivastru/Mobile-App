@@ -1,4 +1,6 @@
-export const baseUrl = 'localhost:3000';
+// core.ts
+export const baseUrl = 'http://localhost:3000';
+
 
 export const getLogger: (tag: string) => (...args: any) => void =
   tag => (...args) => console.log(tag, ...args);
