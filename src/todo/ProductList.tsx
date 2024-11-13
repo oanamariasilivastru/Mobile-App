@@ -4,6 +4,7 @@ import { RouteComponentProps } from 'react-router';
 import {
   IonButton,
   IonButtons,
+  IonCheckbox,
   IonContent,
   IonFab,
   IonFabButton,
@@ -35,7 +36,6 @@ import { ProductProps } from './ProductProps';
 const log = getLogger('ProductList');
 
 const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
-  // Eliminăm 'fetching' din contextul ProductContext
   const { products, fetchingError, successMessage, closeShowSuccess } = useContext(ProductContext);
   const { logout } = useContext(AuthContext);
 
@@ -72,7 +72,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
   };
 
   const fetchData = () => {
-    if (isLoading) return; // Prevenim apelurile multiple
+    if (isLoading) return;
 
     setIsLoading(true);
 
@@ -89,7 +89,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       }
 
       setIsLoading(false);
-    }, 500); // Simulăm un timp de încărcare de 0.5 secunde
+    }, 500);
   };
 
   const searchNext = (event: CustomEvent<void>) => {
@@ -97,14 +97,12 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
     (event.target as HTMLIonInfiniteScrollElement).complete();
   };
 
-  // Resetăm currentIndex și disableInfiniteScroll când se schimbă filtrul sau căutarea
   useEffect(() => {
     const initialIndex = Math.min(8, filteredProducts.length);
     setCurrentIndex(initialIndex);
     setDisableInfiniteScroll(initialIndex >= filteredProducts.length);
   }, [filteredProducts]);
 
-  // Opțional: Gestionăm starea de încărcare inițială
   useEffect(() => {
     if (filteredProducts.length > 0) {
       setIsLoading(false);
@@ -151,11 +149,10 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
-        {/* Înlocuim IonLoading controlat de 'fetching' cu unul controlat de 'isLoading' */}
         <IonLoading isOpen={isLoading} message="Loading products..." />
         {filteredProducts && (
           <IonList inset={true}>
-            <IonItem>
+            <IonItem lines="none">
               <IonLabel>Name</IonLabel>
               <IonLabel>Category</IonLabel>
               <IonLabel>Price</IonLabel>
@@ -173,6 +170,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
                     category={product.category}
                     price={product.price}
                     inStock={product.inStock}
+                    photos={product.photos} // Pass the photos prop
                     onEdit={(id) => history.push(`/product/${id}`)}
                   />
                 ) : null
