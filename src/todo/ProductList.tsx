@@ -1,10 +1,8 @@
-// ProductList.tsx
 import React, { useContext, useEffect, useState, useMemo } from 'react';
 import { RouteComponentProps } from 'react-router';
 import {
   IonButton,
   IonButtons,
-  IonCheckbox,
   IonContent,
   IonFab,
   IonFabButton,
@@ -31,7 +29,6 @@ import { NetworkState } from '../hooks/NetworkState';
 import Product from './Product';
 import { getLogger } from '../core';
 import { ProductContext } from './ProductProvider';
-import { ProductProps } from './ProductProps';
 
 const log = getLogger('ProductList');
 
@@ -149,16 +146,20 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
+        {/* Controlled IonLoading based on 'isLoading' */}
         <IonLoading isOpen={isLoading} message="Loading products..." />
         {filteredProducts && (
           <IonList inset={true}>
+            {/* Header Row */}
             <IonItem lines="none">
-              <IonLabel>Name</IonLabel>
-              <IonLabel>Category</IonLabel>
-              <IonLabel>Price</IonLabel>
-              <IonLabel>In Stock</IonLabel>
+              <IonLabel><strong>Name</strong></IonLabel>
+              <IonLabel><strong>Category</strong></IonLabel>
+              <IonLabel><strong>Price</strong></IonLabel>
+              <IonLabel><strong>In Stock</strong></IonLabel>
+              <IonLabel><strong>Location</strong></IonLabel>
             </IonItem>
 
+            {/* Render Products */}
             {filteredProducts
               .slice(0, currentIndex)
               .map((product) =>
@@ -171,6 +172,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
                     price={product.price}
                     inStock={product.inStock}
                     photos={product.photos} // Pass the photos prop
+                    location={product.location} // Pass the location prop
                     onEdit={(id) => history.push(`/product/${id}`)}
                   />
                 ) : null
@@ -184,7 +186,11 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
         >
           <IonInfiniteScrollContent loadingText="Loading more products..."></IonInfiniteScrollContent>
         </IonInfiniteScroll>
-        {fetchingError && <div>{fetchingError.message || 'Failed to fetch products'}</div>}
+        {fetchingError && (
+          <div style={{ color: 'red', textAlign: 'center', marginTop: '10px' }}>
+            {fetchingError.message || 'Failed to fetch products'}
+          </div>
+        )}
         <IonFab vertical="bottom" horizontal="end" slot="fixed">
           <IonFabButton onClick={() => history.push('/product')}>
             <IonIcon icon={add} />

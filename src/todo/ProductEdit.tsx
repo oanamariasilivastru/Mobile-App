@@ -1,4 +1,3 @@
-// ProductEdit.tsx
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   IonButton,
@@ -26,14 +25,13 @@ import { getLogger } from '../core';
 import { ProductContext } from './ProductProvider';
 import { RouteComponentProps } from 'react-router';
 import { ProductProps, MyPhoto } from './ProductProps';
-import { usePhotos } from '../hooks/usePhotos'; // Ensure correct path
-import axios from 'axios'; // For photo uploads
+import { usePhotos } from '../hooks/usePhotos';
+import MyMap from '../hooks/MyMap';
+import axios from 'axios';
 
 const log = getLogger('ProductEdit');
 
-interface ProductEditProps extends RouteComponentProps<{
-  id?: string;
-}> {}
+interface ProductEditProps extends RouteComponentProps<{ id?: string }> {}
 
 const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   const { products, updating, updatingError, updateProduct } = useContext(ProductContext);
@@ -44,12 +42,15 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   const [product, setProduct] = useState<ProductProps>();
 
   const routeId = match.params.id || '';
-  
+
   // Initialize usePhotos with productId
   const { photos, takePhoto, deletePhoto, setInitialPhotos } = usePhotos(routeId);
   const [photoToDelete, setPhotoToDelete] = useState<MyPhoto | undefined>(undefined);
 
-  // Toast state for success messages
+  // State for location
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // State for toast
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
 
@@ -68,6 +69,9 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
         setInitialPhotos(currentProduct.photos);
         log('Initialized photos with existing product photos');
       }
+      if (currentProduct.location) {
+        setLocation(currentProduct.location);
+      }
     } else {
       log('No product found for the given ID');
     }
@@ -75,15 +79,17 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   }, [routeId, products]);
 
   /**
-   * Handles updating the product, including uploading new photos.
+   * Handles updating the product, including uploading photos and saving location.
    */
   const handleUpdate = useCallback(async () => {
+    if (!location) {
+      setToastMessage('Please select a location on the map.');
+      setShowToast(true);
+      return;
+    }
     try {
       log('handleUpdate triggered');
-      // Simplify by temporarily removing photo uploads to isolate issue
-      /*
-      // Uncomment the following block after verifying basic save functionality
-      // Example: Upload all new photos and get their URLs
+      // Upload all new photos and get URLs
       const uploadedPhotos: MyPhoto[] = [];
       for (let photo of photos) {
         if (!photo.webviewPath?.startsWith('https://')) { // Assuming uploaded photos have URLs
@@ -94,12 +100,12 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
           });
           
           if (response.status === 200) {
-            const uploadedPhotoUrl = response.data.url; // Ensure your backend returns the URL
+            const uploadedPhotoUrl = response.data.url; // Ensure backend returns URL
             uploadedPhotos.push({ filepath: photo.filepath, webviewPath: uploadedPhotoUrl });
             log('Photo uploaded successfully:', uploadedPhotoUrl);
           } else {
             console.error('Failed to upload photo:', response.statusText);
-            // Optionally, handle upload failure (e.g., retry or notify user)
+            // Optionally: handle upload failure (ex. retry or notify user)
           }
         } else {
           // Photo already has a URL
@@ -108,16 +114,10 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
         }
       }
 
-      // Prepare the edited product
+      // Prepare edited product with location
       const editedProduct: ProductProps = product
-        ? { ...product, name, category, price, inStock, photos: uploadedPhotos }
-        : { name, category, price, inStock, photos: uploadedPhotos };
-      */
-
-      // Temporarily bypass photo uploads
-      const editedProduct: ProductProps = product
-        ? { ...product, name, category, price, inStock, photos }
-        : { name, category, price, inStock, photos };
+        ? { ...product, name, category, price, inStock, photos: uploadedPhotos, location: location || undefined }
+        : { name, category, price, inStock, photos: uploadedPhotos, location: location || undefined };
       
       log('Edited Product:', editedProduct);
       
@@ -137,11 +137,11 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
       }, 1500);
     } catch (error) {
       console.error('Error updating product:', error);
-      // Optionally, handle errors (e.g., show an error toast)
+      // Optionally: handle errors (ex. show error toast)
       setToastMessage('Failed to update product.');
       setShowToast(true);
     }
-  }, [photos, routeId, product, name, category, price, inStock, updateProduct, history]);
+  }, [photos, routeId, product, name, category, price, inStock, location, updateProduct, history]);
 
   /**
    * Handles canceling the edit and navigating back.
@@ -163,7 +163,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
 
   /**
    * Handles deleting a selected photo.
-   * @param photo The photo to delete.
+   * @param photo Photo to delete.
    */
   const handleDeletePhoto = (photo: MyPhoto) => {
     log('Deleting photo:', photo.filepath);
@@ -171,6 +171,47 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     setPhotoToDelete(undefined);
     log('Photo deleted');
   };
+
+  /**
+   * Handles map click to select location.
+   * @param e Event object containing coordinates.
+   */
+  const handleMapClick = (e: { latitude: number; longitude: number }) => {
+    setLocation({ lat: e.latitude, lng: e.longitude });
+    log('Location selected via map:', e.latitude, e.longitude);
+  };
+
+  /**
+   * Handles marker click (if needed).
+   * @param e Event object containing marker details.
+   */
+  const handleMarkerClick = (e: { markerId: string; latitude: number; longitude: number }) => {
+    log('Marker clicked:', e.markerId, e.latitude, e.longitude);
+    // Add additional functionalities if needed
+  };
+
+  // Gestionarea evenimentelor de rețea
+  useEffect(() => {
+    const handleOffline = () => {
+      log('Internet disconnected');
+      setToastMessage('Internet connection lost. Some features may not work.');
+      setShowToast(true);
+    };
+
+    const handleOnline = () => {
+      log('Internet reconnected');
+      setToastMessage('Internet connection restored.');
+      setShowToast(true);
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   log('render called');
 
@@ -226,6 +267,26 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
               >
                 In Stock
               </IonCheckbox>
+            </IonCol>
+          </IonRow>
+        </IonGrid>
+        <br />
+
+        {/* Map for selecting location */}
+        <IonGrid>
+          <IonRow>
+            <IonCol size="12">
+              <MyMap
+                lat={location ? location.lat : 37.7749} // Default latitude if no location
+                lng={location ? location.lng : -122.4194} // Default longitude if no location
+                onMapClick={handleMapClick}
+                onMarkerClick={handleMarkerClick}
+              />
+              {location && (
+                <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                  <strong>Selected Location:</strong> Latitude: {location.lat.toFixed(4)}, Longitude: {location.lng.toFixed(4)}
+                </div>
+              )}
             </IonCol>
           </IonRow>
         </IonGrid>
@@ -300,6 +361,6 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
       </IonToolbar>
     </IonPage>
   );
-};    
+};
 
 export default ProductEdit;
