@@ -300,6 +300,6 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
       </IonToolbar>
     </IonPage>
   );
-};
+};    
 
 export default ProductEdit;
