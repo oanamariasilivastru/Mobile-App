@@ -1,3 +1,4 @@
+// src/pages/ProductEdit.tsx
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   IonButton,
@@ -79,7 +80,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   }, [routeId, products]);
 
   /**
-   * Handles updating the product, including uploading photos and saving location.
+   * Handles updating the product, including saving photos and location.
    */
   const handleUpdate = useCallback(async () => {
     if (!location) {
@@ -89,55 +90,31 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     }
     try {
       log('handleUpdate triggered');
-      // Upload all new photos and get URLs
-      const uploadedPhotos: MyPhoto[] = [];
-      for (let photo of photos) {
-        if (!photo.webviewPath?.startsWith('https://')) { // Assuming uploaded photos have URLs
-          log('Uploading photo:', photo.filepath);
-          const response = await axios.post(`/api/products/${routeId}/photos`, {
-            filepath: photo.filepath,
-            base64: photo.webviewPath?.split(',')[1], // Extract base64 string
-          });
-          
-          if (response.status === 200) {
-            const uploadedPhotoUrl = response.data.url; // Ensure backend returns URL
-            uploadedPhotos.push({ filepath: photo.filepath, webviewPath: uploadedPhotoUrl });
-            log('Photo uploaded successfully:', uploadedPhotoUrl);
-          } else {
-            console.error('Failed to upload photo:', response.statusText);
-            // Optionally: handle upload failure (ex. retry or notify user)
-          }
-        } else {
-          // Photo already has a URL
-          uploadedPhotos.push(photo);
-          log('Photo already has URL:', photo.webviewPath);
-        }
-      }
 
-      // Prepare edited product with location
+      // Pregătește produsul editat cu locația și pozele
       const editedProduct: ProductProps = product
-        ? { ...product, name, category, price, inStock, photos: uploadedPhotos, location: location || undefined }
-        : { name, category, price, inStock, photos: uploadedPhotos, location: location || undefined };
+        ? { ...product, name, category, price, inStock, photos, location: location || undefined }
+        : { name, category, price, inStock, photos, location: location || undefined };
       
       log('Edited Product:', editedProduct);
       
-      // Update the product via context
+      // Actualizează produsul prin context
       await updateProduct?.(editedProduct);
       log('Product updated via context');
 
-      // Show success toast
+      // Afișează toast de succes
       setToastMessage('Product updated successfully!');
       setShowToast(true);
       log('Success toast shown');
 
-      // Navigate back after a short delay
+      // Navighează înapoi după un scurt delay
       setTimeout(() => {
         history.goBack();
         log('Navigated back');
       }, 1500);
     } catch (error) {
       console.error('Error updating product:', error);
-      // Optionally: handle errors (ex. show error toast)
+      // Afișează toast de eroare
       setToastMessage('Failed to update product.');
       setShowToast(true);
     }
