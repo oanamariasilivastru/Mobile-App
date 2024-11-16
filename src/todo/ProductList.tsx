@@ -14,6 +14,7 @@ import {
   IonLabel,
   IonList,
   IonLoading,
+  IonModal,
   IonPage,
   IonSearchbar,
   IonSelect,
@@ -22,13 +23,13 @@ import {
   IonToast,
   IonToolbar,
 } from '@ionic/react';
-
 import { add } from 'ionicons/icons';
 import { AuthContext } from '../auth';
 import { NetworkState } from '../hooks/NetworkState';
-import Product from './Product';
-import { getLogger } from '../core';
 import { ProductContext } from './ProductProvider';
+import Product from './Product';
+import MyMap from '../hooks/MyMap';
+import { getLogger } from '../core';
 
 const log = getLogger('ProductList');
 
@@ -41,6 +42,11 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
   const [filter, setFilter] = useState<string>('all');
   const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const [showMapModal, setShowMapModal] = useState<boolean>(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
 
   const filterValues = ['all', 'inStock', 'outOfStock'];
 
@@ -100,14 +106,6 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
     setDisableInfiniteScroll(initialIndex >= filteredProducts.length);
   }, [filteredProducts]);
 
-  useEffect(() => {
-    if (filteredProducts.length > 0) {
-      setIsLoading(false);
-    } else if (filteredProducts.length === 0 && !disableInfiniteScroll) {
-      setIsLoading(true);
-    }
-  }, [filteredProducts, disableInfiniteScroll]);
-
   log('render');
 
   return (
@@ -119,9 +117,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
             slot="end"
             value={filter}
             placeholder="Filter"
-            onIonChange={(e) => {
-              setFilter(e.detail.value);
-            }}
+            onIonChange={(e) => setFilter(e.detail.value)}
           >
             {filterValues.map((each) => (
               <IonSelectOption key={each} value={each}>
@@ -134,11 +130,9 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
             placeholder="Search by name"
             value={searchText}
             debounce={500}
-            onIonInput={(e) => {
-              setSearchText(e.detail.value!);
-            }}
+            onIonInput={(e) => setSearchText(e.detail.value!)}
             slot="secondary"
-          ></IonSearchbar>
+          />
           <IonButtons slot="end">
             <IonButton onClick={handleLogout}>Logout</IonButton>
           </IonButtons>
@@ -146,37 +140,34 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
-        {/* Controlled IonLoading based on 'isLoading' */}
         <IonLoading isOpen={isLoading} message="Loading products..." />
         {filteredProducts && (
           <IonList inset={true}>
-            {/* Header Row */}
             <IonItem lines="none">
+              <IonLabel><strong>Photo</strong></IonLabel>
               <IonLabel><strong>Name</strong></IonLabel>
               <IonLabel><strong>Category</strong></IonLabel>
               <IonLabel><strong>Price</strong></IonLabel>
               <IonLabel><strong>In Stock</strong></IonLabel>
-              <IonLabel><strong>Location</strong></IonLabel>
+              <IonLabel><strong>Actions</strong></IonLabel>
             </IonItem>
-
-            {/* Render Products */}
-            {filteredProducts
-              .slice(0, currentIndex)
-              .map((product) =>
-                product && product._id ? (
-                  <Product
-                    key={product._id}
-                    _id={product._id}
-                    name={product.name}
-                    category={product.category}
-                    price={product.price}
-                    inStock={product.inStock}
-                    photos={product.photos} // Pass the photos prop
-                    location={product.location} // Pass the location prop
-                    onEdit={(id) => history.push(`/product/${id}`)}
-                  />
-                ) : null
-              )}
+            {filteredProducts.slice(0, currentIndex).map((product) =>
+              product && product._id ? (
+                <Product
+                  key={product._id}
+                  {...product}
+                  onEdit={(id) => history.push(`/product/${id}`)}
+                  onViewOnMap={(location) => {
+                    if (location) {
+                      setSelectedLocation(location);
+                      setShowMapModal(true);
+                    } else {
+                      console.error('No location provided for this product.');
+                    }
+                  }}
+                />
+              ) : null
+            )}
           </IonList>
         )}
         <IonInfiniteScroll
@@ -184,7 +175,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
           disabled={disableInfiniteScroll || isLoading}
           onIonInfinite={searchNext}
         >
-          <IonInfiniteScrollContent loadingText="Loading more products..."></IonInfiniteScrollContent>
+          <IonInfiniteScrollContent loadingText="Loading more products..." />
         </IonInfiniteScroll>
         {fetchingError && (
           <div style={{ color: 'red', textAlign: 'center', marginTop: '10px' }}>
@@ -201,16 +192,31 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
             isOpen={!!successMessage}
             message={successMessage}
             position="bottom"
-            buttons={[
-              {
-                text: 'Dismiss',
-                role: 'cancel',
-              },
-            ]}
+            buttons={[{ text: 'Dismiss', role: 'cancel' }]}
             onDidDismiss={closeShowSuccess}
             duration={5000}
           />
         )}
+        <IonModal isOpen={showMapModal} onDidDismiss={() => setShowMapModal(false)}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Product Location</IonTitle>
+              <IonButtons slot="end">
+                <IonButton onClick={() => setShowMapModal(false)}>Close</IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent>
+            {selectedLocation && (
+              <MyMap
+                lat={selectedLocation.lat}
+                lng={selectedLocation.lng}
+                onMapClick={() => {}}
+                onMarkerClick={() => {}}
+              />
+            )}
+          </IonContent>
+        </IonModal>
       </IonContent>
     </IonPage>
   );

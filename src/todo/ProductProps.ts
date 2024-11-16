@@ -1,5 +1,3 @@
-// src/ProductProps.ts
-
 export interface MyPhoto {
   filepath: string;
   webviewPath?: string;
@@ -18,4 +16,10 @@ export interface ProductProps {
   inStock: boolean;
   photos: MyPhoto[];
   location?: Location;
+}
+
+// Extended interface for additional functionality
+export interface ProductPropsExt extends ProductProps {
+  onEdit: (id: string | undefined) => void;
+  onViewOnMap: (location: Location | undefined) => void;
 }
