@@ -24,6 +24,7 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import { add } from 'ionicons/icons';
+import { motion } from 'framer-motion'; // Import framer-motion
 import { AuthContext } from '../auth';
 import { NetworkState } from '../hooks/NetworkState';
 import { ProductContext } from './ProductProvider';
@@ -108,6 +109,12 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
 
   log('render');
 
+  // Animation Variants for Blinking Effect
+  const blinkAnimation = {
+    visible: { opacity: 1 },
+    hidden: { opacity: 0 },
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -140,6 +147,22 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
 
       <IonContent>
+        {/* Animated Blinking Text */}
+        <motion.div
+          variants={blinkAnimation}
+          initial="visible"
+          animate="hidden"
+          transition={{ repeat: Infinity, duration: 1 }}
+          style={{
+            textAlign: 'center',
+            padding: '10px',
+            fontSize: '18px',
+            color: '#4caf50',
+          }}
+        >
+          Welcome to the Product List! 🚀
+        </motion.div>
+
         <IonLoading isOpen={isLoading} message="Loading products..." />
         {filteredProducts && (
           <IonList inset={true}>
