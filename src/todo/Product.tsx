@@ -1,5 +1,6 @@
 import React from 'react';
-import { IonItem, IonLabel, IonButton } from '@ionic/react';
+import { IonButton, IonLabel, IonItem } from '@ionic/react';
+import { motion } from 'framer-motion';
 import { ProductPropsExt } from './ProductProps';
 
 const Product: React.FC<ProductPropsExt> = ({
@@ -13,53 +14,53 @@ const Product: React.FC<ProductPropsExt> = ({
   onEdit,
   onViewOnMap,
 }) => {
-  // Add checks to prevent runtime errors
-  if (!_id || !name || !category || !photos) {
-    console.error('Missing required product props:', { _id, name, category, photos });
-    return null;
-  }
+  const imageUrl = photos && photos.length > 0 ? photos[0].webviewPath : null;
 
   return (
-    <IonItem>
-      {/* Display product photo */}
-      <div
-        style={{
-          width: '60px',
-          height: '60px',
-          overflow: 'hidden',
-          borderRadius: '8px',
-          marginRight: '10px',
-        }}
-      >
-        <img
-          src={photos[0]?.webviewPath || 'placeholder.png'}
-          alt={name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <IonItem>
+        {/* Product Photo */}
+        {imageUrl ? (
+          <div
+            style={{
+              width: '50px',
+              height: '50px',
+              marginRight: '10px',
+              overflow: 'hidden',
+              borderRadius: '8px',
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt={name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </div>
+        ) : (
+          <div style={{ width: '50px', height: '50px', marginRight: '10px' }}></div> // Empty placeholder
+        )}
 
-      {/* Display product details */}
-      <IonLabel>{name}</IonLabel>
-      <IonLabel>{category}</IonLabel>
-      <IonLabel>{price || 'N/A'}</IonLabel>
-      <IonLabel>{inStock ? 'Yes' : 'No'}</IonLabel>
+        {/* Product Details */}
+        <IonLabel>
+          <h2>{name}</h2>
+          <p>{category}</p>
+        </IonLabel>
+        <IonLabel>{price}</IonLabel>
+        <IonLabel>{inStock ? 'Yes' : 'No'}</IonLabel>
 
-      {/* Edit button */}
-      <IonButton onClick={() => onEdit(_id)}>Edit</IonButton>
-
-      {/* View on map button */}
-      <IonButton
-        onClick={() => {
-          if (location) {
-            onViewOnMap(location);
-          } else {
-            console.error('Location is undefined for product:', _id);
-          }
-        }}
-      >
-        View on Map
-      </IonButton>
-    </IonItem>
+        {/* Animated Actions */}
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+          <IonButton onClick={() => onEdit(_id)}>Edit</IonButton>
+        </motion.div>
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+          <IonButton onClick={() => onViewOnMap(location)}>View on Map</IonButton>
+        </motion.div>
+      </IonItem>
+    </motion.div>
   );
 };
 

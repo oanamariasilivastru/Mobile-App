@@ -109,10 +109,56 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
 
   log('render');
 
-  // Animation Variants for Blinking Effect
+  // Animation Variants for Blinking Text
   const blinkAnimation = {
     visible: { opacity: 1 },
     hidden: { opacity: 0 },
+  };
+
+  // Animated Fab Button
+  const AnimatedFab = ({ onClick }: { onClick: () => void }) => {
+    const bounceVariants = {
+      hover: { scale: 1.2 },
+      rest: { scale: 1 },
+    };
+
+    return (
+      <motion.div variants={bounceVariants} initial="rest" whileHover="hover">
+        <IonFabButton onClick={onClick}>
+          <IonIcon icon={add} />
+        </IonFabButton>
+      </motion.div>
+    );
+  };
+
+  // Animated Modal
+  const AnimatedModal = ({
+    isOpen,
+    onClose,
+    children,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    children: React.ReactNode;
+  }) => {
+    const modalVariants = {
+      hidden: { opacity: 0, scale: 0.8 },
+      visible: { opacity: 1, scale: 1 },
+    };
+
+    return (
+      <motion.div
+        variants={modalVariants}
+        initial={isOpen ? 'hidden' : 'visible'}
+        animate={isOpen ? 'visible' : 'hidden'}
+        transition={{ duration: 0.5 }}
+        style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+      >
+        <IonModal isOpen={isOpen} onDidDismiss={onClose}>
+          {children}
+        </IonModal>
+      </motion.div>
+    );
   };
 
   return (
@@ -206,9 +252,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
           </div>
         )}
         <IonFab vertical="bottom" horizontal="end" slot="fixed">
-          <IonFabButton onClick={() => history.push('/product')}>
-            <IonIcon icon={add} />
-          </IonFabButton>
+          <AnimatedFab onClick={() => history.push('/product')} />
         </IonFab>
         {successMessage && (
           <IonToast
@@ -220,15 +264,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
             duration={5000}
           />
         )}
-        <IonModal isOpen={showMapModal} onDidDismiss={() => setShowMapModal(false)}>
-          <IonHeader>
-            <IonToolbar>
-              <IonTitle>Product Location</IonTitle>
-              <IonButtons slot="end">
-                <IonButton onClick={() => setShowMapModal(false)}>Close</IonButton>
-              </IonButtons>
-            </IonToolbar>
-          </IonHeader>
+        <AnimatedModal isOpen={showMapModal} onClose={() => setShowMapModal(false)}>
           <IonContent>
             {selectedLocation && (
               <MyMap
@@ -239,7 +275,7 @@ const ProductList: React.FC<RouteComponentProps> = ({ history }) => {
               />
             )}
           </IonContent>
-        </IonModal>
+        </AnimatedModal>
       </IonContent>
     </IonPage>
   );
