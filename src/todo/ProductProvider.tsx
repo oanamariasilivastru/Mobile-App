@@ -1,3 +1,5 @@
+// src/ProductProvider.tsx
+
 import React, { useCallback, useContext, useEffect, useReducer } from 'react';
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
@@ -16,23 +18,24 @@ import { Preferences } from '@capacitor/preferences';
 
 const log = getLogger('ProductProvider');
 
-type UpdateProductFn = (product: ProductProps) => Promise<any>;
-type DeleteProductFn = (id: string) => Promise<any>;
+type UpdateProductFn = (product: ProductProps) => Promise<void>;
+type AddProductFn = (product: ProductProps) => Promise<void>;
+type DeleteProductFn = (id: string) => Promise<void>;
 
 export interface ProductsState {
-  products?: ProductProps[];
+  products: ProductProps[];
 
   fetching: boolean;
-  fetchingError?: Error | null;
+  fetchingError: Error | null;
 
   updating: boolean;
-  updatingError?: Error | null;
+  updatingError: Error | null;
 
   updateProduct?: UpdateProductFn;
-  addProduct?: UpdateProductFn;
+  addProduct?: AddProductFn;
   deleteProduct?: DeleteProductFn;
 
-  successMessage?: string;
+  successMessage: string | null;
 
   closeShowSuccess?: () => void;
 }
@@ -43,8 +46,12 @@ interface ActionProps {
 }
 
 const initialState: ProductsState = {
+  products: [],
   fetching: false,
+  fetchingError: null,
   updating: false,
+  updatingError: null,
+  successMessage: null,
 };
 
 const SHOW_SUCCESS_MESSAGE = 'SHOW_SUCCESS_MESSAGE';
@@ -84,7 +91,7 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState = (
       return { ...state, updatingError: null, updating: true };
 
     case UPDATE_PRODUCT_SUCCEEDED:
-      const updatedProducts = [...(state.products || [])];
+      const updatedProducts = [...state.products];
       const updatedProduct = payload.product;
       const index = updatedProducts.findIndex((it) => it._id === updatedProduct._id);
       if (index !== -1) {
@@ -101,7 +108,7 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState = (
       return { ...state, updatingError: null, updating: true };
 
     case ADD_PRODUCT_SUCCEEDED:
-      const newProducts = [...(state.products || [])];
+      const newProducts = [...state.products];
       const newProduct = payload.product;
       newProducts.unshift(newProduct);
       return { ...state, products: newProducts, updating: false, updatingError: null };
@@ -113,7 +120,7 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState = (
       return { ...state, updatingError: null, updating: true };
 
     case DELETE_PRODUCT_SUCCEEDED:
-      const remainingProducts = (state.products || []).filter(
+      const remainingProducts = state.products.filter(
         (product) => product._id !== payload.product._id
       );
       return { ...state, products: remainingProducts, updating: false };
@@ -135,7 +142,7 @@ const reducer: (state: ProductsState, action: ActionProps) => ProductsState = (
 export const ProductContext = React.createContext<ProductsState>(initialState);
 
 interface ProductProviderProps {
-  children: PropTypes.ReactNodeLike;
+  children: React.ReactNode;
 }
 
 export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) => {
@@ -143,14 +150,14 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
   const { products, fetching, fetchingError, updating, updatingError, successMessage } = state;
   const { token } = useContext(AuthContext);
   const { networkStatus } = useNetwork();
-  const [toast] = useIonToast();
+  const [presentToast] = useIonToast();
 
   useEffect(getProductsEffect, [token]);
   useEffect(wsEffect, [token]);
   useEffect(executePendingOperations, [networkStatus.connected, token]);
 
   const updateProduct = useCallback<UpdateProductFn>(updateProductCallback, [token]);
-  const addProduct = useCallback<UpdateProductFn>(addProductCallback, [token]);
+  const addProduct = useCallback<AddProductFn>(addProductCallback, [token]);
   const deleteProduct = useCallback<DeleteProductFn>(deleteProductCallback, [token]);
 
   const value = {
@@ -210,27 +217,26 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
 
       const updatedProduct = await updateProductApi(token, product);
 
-      log('updateProduct succeeded');
+      log('updateProduct succeeded:', updatedProduct);
 
       dispatch({ type: UPDATE_PRODUCT_SUCCEEDED, payload: { product: updatedProduct } });
     } catch (error: any) {
-      log('updateProduct failed');
+      log('updateProduct failed:', error);
 
+      // Save to Preferences for offline handling
       await Preferences.set({
-        key: `upd-${product.name}`,
+        key: `upd-${product._id}`, // use _id for unique key
         value: JSON.stringify({ token, product }),
       });
 
-      dispatch({ type: UPDATE_PRODUCT_SUCCEEDED, payload: { product } });
+      // Dispatch UPDATE_PRODUCT_FAILED with error
+      dispatch({ type: UPDATE_PRODUCT_FAILED, payload: { error: new Error(error.response?.data?.message || 'Network error') } });
 
-      toast('You are offline... Updating product locally!', 3000);
-
-      if (error.toJSON().message === 'Network Error') {
-        dispatch({
-          type: UPDATE_PRODUCT_FAILED,
-          payload: { error: new Error(error.response || 'Network error') },
-        });
-      }
+      presentToast({
+        message: 'You are offline... Updating product locally!',
+        duration: 3000,
+        color: 'warning',
+      });
     }
   }
 
@@ -242,32 +248,26 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
 
       const savedProduct = await addProductApi(token, product);
 
-      log('addProduct succeeded');
+      log('addProduct succeeded:', savedProduct);
 
       dispatch({ type: ADD_PRODUCT_SUCCEEDED, payload: { product: savedProduct } });
     } catch (error: any) {
-      log('addProduct failed');
+      log('addProduct failed:', error);
 
-      const { keys } = await Preferences.keys();
-      const matchingKeys = keys.filter((key) => key.startsWith('sav-'));
-      const numberOfProducts = matchingKeys.length + 1;
-      product._id = numberOfProducts.toString();
-
+      // Save to Preferences for offline handling
       await Preferences.set({
-        key: `sav-${product.name}`,
+        key: `sav-${Date.now()}`, // unique key with timestamp
         value: JSON.stringify({ token, product }),
       });
 
-      dispatch({ type: ADD_PRODUCT_SUCCEEDED, payload: { product } });
+      // Dispatch ADD_PRODUCT_FAILED with error
+      dispatch({ type: ADD_PRODUCT_FAILED, payload: { error: new Error(error.response?.data?.message || 'Network error') } });
 
-      toast('You are offline... Adding product locally!', 3000);
-
-      if (error.toJSON().message === 'Network Error') {
-        dispatch({
-          type: ADD_PRODUCT_FAILED,
-          payload: { error: new Error(error.response || 'Network error') },
-        });
-      }
+      presentToast({
+        message: 'You are offline... Adding product locally!',
+        duration: 3000,
+        color: 'warning',
+      });
     }
   }
 
@@ -279,15 +279,21 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
 
       const deletedProduct = await deleteProductApi(token, id);
 
-      log('deleteProduct succeeded');
+      log('deleteProduct succeeded:', deletedProduct);
 
       dispatch({ type: DELETE_PRODUCT_SUCCEEDED, payload: { product: deletedProduct } });
     } catch (error: any) {
-      log('deleteProduct failed');
+      log('deleteProduct failed:', error);
 
       dispatch({
         type: DELETE_PRODUCT_FAILED,
         payload: { error: new Error(error.response?.data?.message || 'Delete failed') },
+      });
+
+      presentToast({
+        message: 'Failed to delete product.',
+        duration: 3000,
+        color: 'danger',
       });
     }
   }
@@ -298,17 +304,23 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         log('executing pending operations');
 
         const { keys } = await Preferences.keys();
+
         for (const key of keys) {
           if (key.startsWith('sav-')) {
             const res = await Preferences.get({ key });
-            console.log('result: ' + res);
+            console.log('result for key', key, ':', res);
 
-            if (typeof res.value === 'string') {
-              const value = JSON.parse(res.value);
-              value.product._id = undefined;
-              log('creating product from pending: ' + value);
-              await addProductCallback(value.product);
-              await Preferences.remove({ key });
+            if (res.value) {
+              try {
+                const value = JSON.parse(res.value);
+                const pendingProduct: ProductProps = value.product;
+                log('creating product from pending:', pendingProduct);
+
+                await addProductCallback(pendingProduct);
+                await Preferences.remove({ key });
+              } catch (error) {
+                console.error('Error processing saved product:', error);
+              }
             }
           }
         }
@@ -316,13 +328,19 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         for (const key of keys) {
           if (key.startsWith('upd-')) {
             const res = await Preferences.get({ key });
-            console.log('result: ' + res);
+            console.log('result for key', key, ':', res);
 
-            if (typeof res.value === 'string') {
-              const value = JSON.parse(res.value);
-              log('updating product from pending: ' + value);
-              await updateProductCallback(value.product);
-              await Preferences.remove({ key });
+            if (res.value) {
+              try {
+                const value = JSON.parse(res.value);
+                const pendingProduct: ProductProps = value.product;
+                log('updating product from pending:', pendingProduct);
+
+                await updateProductCallback(pendingProduct);
+                await Preferences.remove({ key });
+              } catch (error) {
+                console.error('Error processing updated product:', error);
+              }
             }
           }
         }
@@ -347,14 +365,18 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
 
         const { event, payload } = message;
 
-        log(`ws message, product: ${event}`);
+        log(`ws message, event: ${event}`);
 
         if (event === 'updated') {
           dispatch({
-            type: SHOW_SUCCESS_MESSAGE,
-            payload: { successMessage: payload.successMessage, updatedProduct: payload.updatedProduct },
+            type: UPDATE_PRODUCT_SUCCEEDED,
+            payload: { product: payload.updatedProduct },
           });
-        } else if (event == 'created') {
+          dispatch({
+            type: SHOW_SUCCESS_MESSAGE,
+            payload: { successMessage: 'Product updated successfully!' },
+          });
+        } else if (event === 'created') {
           dispatch({
             type: ADD_PRODUCT_SUCCEEDED,
             payload: { product: payload.updatedProduct },

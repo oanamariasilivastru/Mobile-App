@@ -1,4 +1,5 @@
 // src/pages/ProductEdit.tsx
+
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   IonButton,
@@ -58,6 +59,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
   useEffect(() => {
     log('useEffect triggered');
     const currentProduct = products?.find((it) => it._id === routeId);
+    log('Current Product:', currentProduct);
     setProduct(currentProduct);
     if (currentProduct) {
       setName(currentProduct.name);
@@ -65,13 +67,19 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
       setPrice(currentProduct.price);
       setInStock(currentProduct.inStock);
       log('Product found:', currentProduct);
+      
+      // Log the location to verify its structure
+      console.log('Product Location:', currentProduct.location);
+      
       if (currentProduct.photos && currentProduct.photos.length > 0 && photos.length === 0) {
-        // Initialize usePhotos with existing photos
         setInitialPhotos(currentProduct.photos);
         log('Initialized photos with existing product photos');
       }
       if (currentProduct.location) {
-        setLocation(currentProduct.location);
+        setLocation({
+          lat: currentProduct.location.lat,
+          lng: currentProduct.location.lng,
+        });
       }
     } else {
       log('No product found for the given ID');
@@ -91,30 +99,30 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     try {
       log('handleUpdate triggered');
 
-      // Pregătește produsul editat cu locația și pozele
+      // Prepare the edited product with location and photos
       const editedProduct: ProductProps = product
         ? { ...product, name, category, price, inStock, photos, location: location || undefined }
         : { name, category, price, inStock, photos, location: location || undefined };
       
       log('Edited Product:', editedProduct);
       
-      // Actualizează produsul prin context
+      // Update the product via context
       await updateProduct?.(editedProduct);
       log('Product updated via context');
 
-      // Afișează toast de succes
+      // Show success toast
       setToastMessage('Product updated successfully!');
       setShowToast(true);
       log('Success toast shown');
 
-      // Navighează înapoi după un scurt delay
+      // Navigate back after a short delay
       setTimeout(() => {
         history.goBack();
         log('Navigated back');
       }, 1500);
     } catch (error) {
       console.error('Error updating product:', error);
-      // Afișează toast de eroare
+      // Show error toast
       setToastMessage('Failed to update product.');
       setShowToast(true);
     }
@@ -167,7 +175,7 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
     // Add additional functionalities if needed
   };
 
-  // Gestionarea evenimentelor de rețea
+  // Handling network events
   useEffect(() => {
     const handleOffline = () => {
       log('Internet disconnected');
@@ -253,7 +261,9 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
         <IonGrid>
           <IonRow>
             <IonCol size="12">
+              {/* Add a key prop to force remount when location changes */}
               <MyMap
+                key={location ? `${location.lat}-${location.lng}` : 'default'}
                 lat={location ? location.lat : 37.7749} // Default latitude if no location
                 lng={location ? location.lng : -122.4194} // Default longitude if no location
                 onMapClick={handleMapClick}
@@ -325,7 +335,13 @@ const ProductEdit: React.FC<ProductEditProps> = ({ history, match }) => {
           position="bottom"
           onDidDismiss={() => setShowToast(false)}
           duration={2000}
-          color={toastMessage.includes('successfully') ? 'success' : 'danger'}
+          color={
+            toastMessage.includes('successfully')
+              ? 'success'
+              : toastMessage.includes('lost') || toastMessage.includes('failed')
+              ? 'danger'
+              : 'warning'
+          }
         />
       </IonContent>
       <IonToolbar>
