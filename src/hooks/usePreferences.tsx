@@ -25,7 +25,6 @@ export const usePreferences = () => {
 
     function runPreferencesDemo() {
         (async () => {
-            // Example usage for testing
             await set('user', JSON.stringify({ username: 'a', password: 'a' }));
             const user = await get('user');
             console.log(user ? JSON.parse(user) : 'User not found');

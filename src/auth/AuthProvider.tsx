@@ -131,7 +131,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Salvăm token-ul în Preferences
         await Preferences.set({ key: 'token', value: token });
 
         log('authentication succeeded');
